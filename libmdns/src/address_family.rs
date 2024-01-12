@@ -1,5 +1,5 @@
 use super::MDNS_PORT;
-use if_addrs::get_if_addrs;
+use if_addrs::{get_if_addrs, IfAddr};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
@@ -103,6 +103,23 @@ fn get_address_list() -> io::Result<Vec<(String, IpAddr)>> {
     Ok(get_if_addrs()?
         .iter()
         .filter(|iface| !iface.is_loopback())
+        .filter(|iface| {
+            let ip = iface.ip().clone();
+            match iface.addr.clone() {
+                IfAddr::V4(v4) => {
+                    if let Some(broadcast) = v4.broadcast {
+                        return broadcast == ip;
+                    }
+                    true
+                }
+                IfAddr::V6(v6) => {
+                    if let Some(broadcast) = v6.broadcast {
+                        return broadcast == ip;
+                    }
+                    true
+                }
+            }
+        })
         .map(|iface| (iface.name.clone(), iface.ip()))
         .collect())
 }
